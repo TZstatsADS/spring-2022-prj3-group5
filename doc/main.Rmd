@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, message=FALSE}
 # Load required libraries
 library(reticulate)
-library(keras)
+library(keras) # high-level neural networks API, written in Python and capable of running on top of TensorFlow, CNTK or Theano
 library(tensorflow)
 library(dplyr)
 library(png)
@@ -121,9 +121,10 @@ clf = glm.fit(feature_mtx, target_vec)
 
 ### Model 1
 
-Creating a CNN.
+Here we build a convolutional neural network (CNN) that's trained on the last 40,000 images with noisy labels (i.e., image #10,001 to #50,000) and tested on the first 10,000 images with clean labels (i.e., image #1 to #10,000). This way of segmenting the data into train and validation sets are in the proportion of 80% to 20% respectively.
 
 ```{r}
+# Sequential = layer by layer building; not possible to share layers
 model <- keras_model_sequential() %>%
   layer_conv_2d(filters = 32, kernel_size = c(3,3), activation = "relu",
                 input_shape = c(32,32,3)) %>%
@@ -131,42 +132,38 @@ model <- keras_model_sequential() %>%
   layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu") %>%
   layer_max_pooling_2d(pool_size = c(2,2)) %>%
   layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu")
-```
 
-```{r}
+# Now flatten and apply neural net calculation
 model %>%
   layer_flatten() %>%
   layer_dense(units = 64, activation = "relu") %>%
   layer_dense(units = 10, activation = "softmax")
-```
 
-```{r}
+# Compile and train model
 model %>% 
   compile(
     optimizer = "adam",
     loss = "sparse_categorical_crossentropy",
     metrics = "accuracy"
   )
-```
 
-```{r}
+# Fit the model
 start_time = Sys.time()
-
-history <- model %>% 
+results_train <- model %>% 
   fit(
     x = cifar$train$x[10001:50000,,,], y = cifar$train$y[10001:50000],
     epochs = 10,
     validation_data = unname(cifar$test),
     verbose = 2
   )
-
 end_time = Sys.time()
 
-plot(history)
-```
-
-```{r}
+# Evaluate model
+plot(results_train)
 evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
+
+# Time taken to train model
+end_time - start_time
 ```
 
 ### Model 2
