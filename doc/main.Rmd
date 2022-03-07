@@ -1,0 +1,172 @@
+---
+title: "Weakly Supervised Learning: Label Noise and Correction"
+subtitle: "Applied Data Science Project 3"
+author: "Marcus Loke"
+date: "Spring 2022"
+output:
+  html_document: 
+    theme: lumen
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+# Load required libraries
+library(reticulate)
+library(keras)
+library(tensorflow)
+library(dplyr)
+library(png)
+library(glue)
+library(stringr)
+```
+
+## Load the datasets
+
+For the project, we provide a training set with 50,000 images in the directory `../data/images/` with:
+
++ noisy labels for all images provided in `../data/noisy_labels.csv`;
++ clean labels for the first 10,000 images provided in `../data/clean_labels.csv`.
+
+```{r}
+# Load the images
+n_img = 50000
+n_noisy = 40000
+n_clean_noisy = n_img - n_noisy
+imgs = array(NA, c(n_img,32,32,3))
+
+for (i in 1:n_img){
+  img_fn = glue("../data/images/{str_pad(i, 5, pad='0')}.png")
+  imgs[i,,,] = readPNG(img_fn) 
+  i = i + 1
+}
+
+# Load the labels
+clean_labels = as.matrix(read.csv("../data/clean_labels.csv", header=F))
+noisy_labels = as.matrix(read.csv("../data/noisy_labels.csv", header=F))
+
+# Combine into lists
+cifar = list()
+cifar$train$x = imgs
+cifar$train$y = noisy_labels
+cifar$test$x = imgs[1:10000,,,]
+cifar$test$y = clean_labels
+```
+
+### Verify the data
+
+For illustration, we present a small subset (of size 8) of the images with their clean and noisy labels in `clean_noisy_trainset`. You are encouraged to explore more characteristics of the label noises on the whole dataset.
+
+```{r}
+# The class label correspondence
+classes = c('plane', 'car', 'bird', 'cat', 
+            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+
+index = 1:8
+
+# Print clean labels
+par(mfrow = c(2,4), mar = rep(1, 4), oma = rep(0.2, 4))
+cifar$train$x[index,,,] %>% 
+  purrr::array_tree(1) %>%
+  purrr::set_names(classes[clean_labels[index] + 1]) %>% 
+  purrr::map(as.raster, max = 1) %>%
+  purrr::iwalk(~{plot(.x); title(.y)})
+
+# Print noisy labels
+par(mfrow = c(2,4), mar = rep(1, 4), oma = rep(0.2, 4))
+cifar$train$x[index,,,] %>% 
+  purrr::array_tree(1) %>%
+  purrr::set_names(classes[noisy_labels[index] + 1]) %>% 
+  purrr::map(as.raster, max = 1) %>%
+  purrr::iwalk(~{plot(.x); title(.y)})
+```
+
+## The predictive model
+
+We consider a baseline model directly on the noisy dataset without any label corrections. RGB histogram features are extracted to fit a logistic regression model.
+
+### Baseline model
+
+```{r}
+# RGB histogram data construction
+no_bins = 6
+bins = array(seq(0, 1, length.out=no_bins)) # the range of the rgb histogram
+target_vec = array(NA, n_img)
+feature_mtx = array(NA, c(n_img,3*(length(bins)-1)))
+i = 0
+
+for (i in 1:n_img){
+  # The target vector consists of noisy labels
+  target_vec[i] = noisy_labels[i]
+  
+  # Use the number of pixels in each bin for all three channels as features
+  feature1 = array(hist(imgs[i,,,1], breaks = bins, plot = F)$counts)
+  feature2 = array(hist(imgs[i,,,2], breaks = bins, plot = F)$counts)
+  feature3 = array(hist(imgs[i,,,3], breaks = bins, plot = F)$counts)
+  
+  # Concatenate three features
+  feature_mtx[i,] = c(feature1, feature2, feature3)
+  i = i + 1
+}
+```
+
+```{r}
+# Train a logistic regression model
+clf = glm.fit(feature_mtx, target_vec)
+```
+
+### Model 1
+
+Creating a CNN.
+
+```{r}
+model <- keras_model_sequential() %>%
+  layer_conv_2d(filters = 32, kernel_size = c(3,3), activation = "relu",
+                input_shape = c(32,32,3)) %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu")
+```
+
+```{r}
+model %>%
+  layer_flatten() %>%
+  layer_dense(units = 64, activation = "relu") %>%
+  layer_dense(units = 10, activation = "softmax")
+```
+
+```{r}
+model %>% 
+  compile(
+    optimizer = "adam",
+    loss = "sparse_categorical_crossentropy",
+    metrics = "accuracy"
+  )
+```
+
+```{r}
+start_time = Sys.time()
+
+history <- model %>% 
+  fit(
+    x = cifar$train$x[10001:50000,,,], y = cifar$train$y[10001:50000],
+    epochs = 10,
+    validation_data = unname(cifar$test),
+    verbose = 2
+  )
+
+end_time = Sys.time()
+
+plot(history)
+```
+
+```{r}
+evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
+```
+
+### Model 2
