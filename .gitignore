@@ -1,0 +1,3 @@
+data/images/*.png
+doc/*.RData
+doc/*.Rhistory
