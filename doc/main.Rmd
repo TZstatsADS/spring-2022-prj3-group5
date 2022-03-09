@@ -24,6 +24,9 @@ library(dplyr)
 library(png)
 library(glue)
 library(stringr)
+
+# Sets all random seeds needed to make TensorFlow code reproducible
+set_random_seed(100)
 ```
 
 ## Load the datasets
@@ -100,7 +103,7 @@ target_vec = array(NA, n_img)
 feature_mtx = array(NA, c(n_img,3*(length(bins)-1)))
 i = 0
 
-for (i in 1:n_img){
+for (i in 1:n_img) {
   # The target vector consists of noisy labels
   target_vec[i] = noisy_labels[i]
   
@@ -125,7 +128,8 @@ clf = multinom(target_vec~., data = df_feature_mtx)
 # Extract features for first 10,000 images (clean labels)
 feature = array(NA, c(n_clean_noisy,3*(length(bins)-1)))
 i = 0
-for (i in 1:n_clean_noisy){
+
+for (i in 1:n_clean_noisy) {
   # Use the number of pixels in each bin for all three channels as features
   feature1 = array(hist(imgs[i,,,1], breaks = bins, plot = F)$counts)
   feature2 = array(hist(imgs[i,,,2], breaks = bins, plot = F)$counts)
@@ -135,18 +139,64 @@ for (i in 1:n_clean_noisy){
   feature[i,] = c(feature1, feature2, feature3)
   i = i + 1
 }
-
-# Predict on first 10,000 images and show accuracy
-sum(as.integer(predict(clf, as.data.frame(feature))) == as.data.frame(clean_labels)) / 10000
 ```
 
-For the convenience of evaluation, we write the following function `predictive_model` that does the label prediction. For your predictive model, feel free to modify the function, but make sure the function takes an RGB image of format with dimension $32 \times 32 \times 3$ as input, and returns one single label as output.
+For the convenience of evaluation, we write the following function `baseline_model` that does the label prediction. For your predictive model, feel free to modify the function, but make sure the function takes RGB images of format with dimension $32 \times 32 \times 3$ as input, and returns labels as output.
 
 ```{r}
-
+# This is the baseline predictive model that takes in an array of images and returns the label predictions
+baseline_model <- function(images) {
+  # Initialize vars
+  feature = array(NA, c(nrow(images),3*(length(bins)-1)))
+  i = 0
+  
+  for (i in 1:nrow(images)) {
+    # Use the number of pixels in each bin for all three channels as features
+    feature1 = array(hist(images[i,,,1], breaks = bins, plot = F)$counts)
+    feature2 = array(hist(images[i,,,2], breaks = bins, plot = F)$counts)
+    feature3 = array(hist(images[i,,,3], breaks = bins, plot = F)$counts)
+  
+    # Concatenate three features
+    feature[i,] = c(feature1, feature2, feature3)
+    i = i + 1
+  }
+  
+  # Predict labels
+  return(predict(clf, as.data.frame(feature)))
+}
 ```
 
-### Model 1
+Also, for convenience of showing the results like precision, recall, F1 score, accuracy, etc., the following function is created to produce the classification report.
+
+```{r}
+class_report <- function(cm, dp=2) {
+  ct <- sum(cm)
+  cs <- colSums(cm)
+  rs <- rowSums(cm)
+  tp <- diag(cm)
+  tn <- ct - (rs + cs - tp)
+  fp <- rs - tp
+  fn <- cs - tp
+  pr <- tp / (tp + fp)
+  re <- tp / (tp + fn)
+  f1 <- 2 * pr * re / (pr + re)
+  ac <- sum(tp) / ct
+  list(summary=round(data.frame(tp, tn, fp, fn, precision=pr, recall=re, f1_score=f1, support=cs), dp),
+       accuracy=round(ac, dp),
+       support=ct)
+}
+```
+
+Evaluate baseline model on the validation set, which contains the first 10,000 clean images.
+
+```{r}
+# Predict on first 10,000 clean images and show results
+valid = as.factor((as.data.frame(clean_labels))$V1)
+pred = baseline_model(imgs[1:10000,,,])
+class_report(table(pred, valid))
+```
+
+### Model 1: CNN
 
 Here we build a convolutional neural network (CNN) that's trained on the last 40,000 images with noisy labels (i.e., image #10,001 to #50,000) and tested on the first 10,000 images with clean labels (i.e., image #1 to #10,000). This way of segmenting the data into train and validation sets are in the proportion of 80% to 20% respectively.
 
@@ -187,16 +237,27 @@ end_time = Sys.time()
 
 # Evaluate model
 plot(results_train)
-evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
 
 # Time taken to train model
 end_time - start_time
+```
+
+Evaluate the CNN model on the validation set, which contains the first 10,000 clean images.
+
+```{r}
+# Predict on first 10,000 clean images and show results
+pred1 = model %>%
+  predict(cifar$test$x) %>%
+  k_argmax() %>%
+  as.matrix() %>%
+  as.factor()
+
+class_report(table(pred1, valid))
+
+evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
 ```
 
 ### Model 2
 
 ## Evaluation
 
-```{r}
-
-```
