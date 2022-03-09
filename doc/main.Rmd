@@ -190,7 +190,7 @@ class_report <- function(cm, dp=2) {
 Evaluate baseline model on the validation set, which contains the first 10,000 clean images.
 
 ```{r}
-# Predict on first 10,000 clean images and show results
+# Predict on first 10,000 images and show results
 valid = as.factor((as.data.frame(clean_labels))$V1)
 pred = baseline_model(imgs[1:10000,,,])
 class_report(table(pred, valid))
@@ -242,18 +242,27 @@ plot(results_train)
 end_time - start_time
 ```
 
+For the convenience of evaluation, we write the following function `cnn_model1` that does the label prediction. The function takes in RGB images of format with dimension $32 \times 32 \times 3$ as input, and returns labels as output.
+
+```{r}
+# This is the CNN predictive model that takes in an array of images and returns the label predictions
+cnn_model1 <- function(images) {
+  # Predict labels
+  pred1 = model %>%
+    predict(images) %>%
+    k_argmax() %>%
+    as.matrix() %>%
+    as.factor()
+  return(pred1)
+}
+```
+
 Evaluate the CNN model on the validation set, which contains the first 10,000 clean images.
 
 ```{r}
-# Predict on first 10,000 clean images and show results
-pred1 = model %>%
-  predict(cifar$test$x) %>%
-  k_argmax() %>%
-  as.matrix() %>%
-  as.factor()
-
+# Predict on first 10,000 images and show results
+pred1 = cnn_model1(imgs[1:10000,,,])
 class_report(table(pred1, valid))
-
 evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
 ```
 
