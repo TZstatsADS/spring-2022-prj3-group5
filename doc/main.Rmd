@@ -24,6 +24,7 @@ library(dplyr)
 library(png)
 library(glue)
 library(stringr)
+library(caret)
 
 # Sets all random seeds needed to make TensorFlow code reproducible
 set_random_seed(100)
@@ -89,11 +90,11 @@ cifar$train$x[index,,,] %>%
   purrr::iwalk(~{plot(.x); title(.y)})
 ```
 
-## The predictive model
-
-We consider a baseline model directly on the noisy dataset without any label corrections. RGB histogram features are extracted to fit a logistic regression model.
+## The predictive models
 
 ### Baseline model
+
+We consider a baseline model directly on the noisy dataset without any label corrections. RGB histogram features are extracted to fit a logistic regression model.
 
 ```{r}
 # RGB histogram data construction
@@ -118,7 +119,7 @@ for (i in 1:n_img) {
 }
 ```
 
-```{r, message=FALSE}
+```{r, message=FALSE, echo=TRUE, results='hide'}
 # Train a multinomial logistic regression model with last 40,000 images
 df_feature_mtx = cbind(as.data.frame(feature_mtx[10001:50000,]),
                        as.data.frame(target_vec[10001:50000])) %>%
@@ -169,6 +170,8 @@ baseline_model <- function(images) {
 Also, for convenience of showing the results like precision, recall, F1 score, accuracy, etc., the following function is created to produce the classification report.
 
 ```{r}
+# Function to produce classification report
+# cm = confusion matrix; dp = no. of decimal places
 class_report <- function(cm, dp=2) {
   ct <- sum(cm)
   cs <- colSums(cm)
@@ -187,7 +190,7 @@ class_report <- function(cm, dp=2) {
 }
 ```
 
-Evaluate baseline model on the validation set, which contains the first 10,000 clean images.
+Evaluate baseline model on the validation set, which contains the first 10,000 images with clean labels.
 
 ```{r}
 # Predict on first 10,000 images and show results
@@ -257,7 +260,7 @@ cnn_model1 <- function(images) {
 }
 ```
 
-Evaluate the CNN model on the validation set, which contains the first 10,000 clean images.
+Evaluate the CNN model on the validation set, which contains the first 10,000 images with clean labels.
 
 ```{r}
 # Predict on first 10,000 images and show results
@@ -266,7 +269,84 @@ class_report(table(pred1, valid))
 evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
 ```
 
-### Model 2
+#### 5-fold CV
+
+To have a better estimation of the model performance on future unseen data, we performed 5-fold cross validation (CV) on the last 40,000 images and averaged the accuracy. We chose 5-fold CV and not a bigger k value because we did not want to overfit the model and we wanted a quicker run time. We also did not select too small a value for k due to the risk of the increase in bias. From the results below, the average accuracy from the 5-folds CV is 33%. Although there is a drop in accuracy from the same CNN model tested on the first 10,000 images, do note that the CV was trained and tested on the last 40,000 with noisy labels. Hence, this drop in accuracy is expected and can be improved with label correction (to be done next).
+
+```{r}
+# Create 5 folds that stores the indexes for each fold
+set.seed(100)
+folds = createFolds(cifar$train$x[10001:50000], k=5, list=TRUE, returnTrain=FALSE)
+
+# Initialize vars
+i = 1
+acc_cv = NA
+
+# Initlize CNN for CV
+# Sequential = layer by layer building; not possible to share layers
+model_cv <- keras_model_sequential() %>%
+  layer_conv_2d(filters = 32, kernel_size = c(3,3), activation = "relu",
+                input_shape = c(32,32,3)) %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu")
+
+# Now flatten and apply neural net calculation
+model_cv %>%
+  layer_flatten() %>%
+  layer_dense(units = 64, activation = "relu") %>%
+  layer_dense(units = 10, activation = "softmax")
+
+# Compile and train model
+model_cv %>% 
+  compile(
+    optimizer = "adam",
+    loss = "sparse_categorical_crossentropy",
+    metrics = "accuracy"
+  )
+
+# Perform 5-fold CV on the last 40,000 images
+for (i in 1:length(folds)) {
+  # Train CNN model on all images except i-th fold
+  model_cv %>%
+    fit(
+      x = cifar$train$x[unlist(folds[-i])+10000,,,], y = cifar$train$y[unlist(folds[-i])+10000],
+      epochs = 10,
+      validation_data = unname(cifar$test),
+      verbose = 2
+    )
+  
+  # Predict on i-th fold
+  valid_cv = as.factor(cifar$train$y[folds[[i]]+10000])
+  pred_cv = model_cv %>%
+    predict(cifar$train$x[folds[[i]]+10000,,,]) %>%
+    k_argmax() %>%
+    as.matrix() %>%
+    as.factor()
+  
+  # Store accuracy
+  acc_cv[i]= class_report(table(pred_cv, valid_cv))$accuracy
+}
+
+# Average accuracy across 5-folds
+mean(acc_cv)
+```
+
+### Model 2: WSL with CNN
+
+Here we approached the prediction modelling process in two main steps: First, we will train a CNN that does the label correction (i.e., mapping noisy labels to cleaned labels, conditioned on the input image). Then we use this CNN to correct the noisy labels to get cleaned ones, which will then be used to train our CNN in Model 1.
+
++ **Step 1**: Train a label correction network on the first 10,000 images with clean labels and predict on the last 40,000 images to correct their labels.
++ **Step 2**: Once the labels have been corrected, we will train a new CNN (similar to Model 1) on the corrected labels. 
+
+#### Label correction network
+
+```{r}
+
+```
+
+#### Model 2
 
 ## Evaluation
 
