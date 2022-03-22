@@ -8,6 +8,7 @@ output:
     theme: lumen
     toc: true
     toc_float: true
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
@@ -30,7 +31,7 @@ library(caret)
 set_random_seed(100)
 ```
 
-## Load the datasets
+# Load the datasets
 
 For the project, we provide a training set with 50,000 images in the directory `../data/images/` with:
 
@@ -62,7 +63,7 @@ cifar$test$x = imgs[1:10000,,,]
 cifar$test$y = clean_labels
 ```
 
-### Verify the data
+## Verify the data
 
 For illustration, we present a small subset (of size 8) of the images with their clean and noisy labels in `clean_noisy_trainset`. You are encouraged to explore more characteristics of the label noises on the whole dataset.
 
@@ -90,9 +91,9 @@ cifar$train$x[index,,,] %>%
   purrr::iwalk(~{plot(.x); title(.y)})
 ```
 
-## The predictive models
+# The predictive models
 
-### Baseline model
+## Baseline model
 
 We consider a baseline model directly on the noisy dataset without any label corrections. RGB histogram features are extracted to fit a logistic regression model.
 
@@ -199,7 +200,7 @@ pred = baseline_model(imgs[1:10000,,,])
 class_report(table(pred, valid))
 ```
 
-### Model 1: CNN
+## Model 1: CNN
 
 Here we build a convolutional neural network (CNN) that's trained on the last 40,000 images with noisy labels (i.e., image #10,001 to #50,000) and tested on the first 10,000 images with clean labels (i.e., image #1 to #10,000). This way of segmenting the data into train and validation sets are in the proportion of 80% to 20% respectively.
 
@@ -269,11 +270,11 @@ class_report(table(pred1, valid))
 evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
 ```
 
-#### 5-fold CV
+### 5-fold CV
 
 To have a better estimation of the model performance on future unseen data, we performed 5-fold cross validation (CV) on the last 40,000 images and averaged the accuracy. We chose 5-fold CV and not a bigger k value because we did not want to overfit the model and we wanted a quicker run time. We also did not select too small a value for k due to the risk of the increase in bias. From the results below, the average accuracy from the 5-folds CV is 33%. Although there is a drop in accuracy from the same CNN model tested on the first 10,000 images, do note that the CV was trained and tested on the last 40,000 with noisy labels. Hence, this drop in accuracy is expected and can be improved with label correction (to be done next).
 
-```{r}
+```{r, eval=FALSE}
 # Create 5 folds that stores the indexes for each fold
 set.seed(100)
 folds = createFolds(cifar$train$x[10001:50000], k=5, list=TRUE, returnTrain=FALSE)
@@ -333,20 +334,139 @@ for (i in 1:length(folds)) {
 mean(acc_cv)
 ```
 
-### Model 2: WSL with CNN
+## Model 2: WSL with CNN
 
-Here we approached the prediction modelling process in two main steps: First, we will train a CNN that does the label correction (i.e., mapping noisy labels to cleaned labels, conditioned on the input image). Then we use this CNN to correct the noisy labels to get cleaned ones, which will then be used to train our CNN in Model 1.
+Here we approached the prediction modelling process in two main steps: First, we will train a CNN that does the label correction (i.e., mapping noisy labels to cleaned labels, conditioned on the input image). Then we use this CNN to correct the noisy labels to get cleaned ones, which will then be used to train our CNN in Model 1 for image classification.
 
-+ **Step 1**: Train a label correction network on the first 10,000 images with clean labels and predict on the last 40,000 images to correct their labels.
-+ **Step 2**: Once the labels have been corrected, we will train a new CNN (similar to Model 1) on the corrected labels. 
++ **Step 1**: Train a label correction network on the first 7,000 images with clean labels (leave the remaining 3,000 images with clean labels for validation purposes in Step 2) and predict on the last 40,000 images to correct their labels.
++ **Step 2**: Once the labels have been corrected, we will re-train a new CNN (similar to Model 1) on the last 40,000 images and predict on the remaining 3,000 images for validation purposes. 
 
-#### Label correction network
+### Label correction network
+
+First, we train a label correction network using CNN on the first 7,000 images with clean labels.
 
 ```{r}
+# Sequential = layer by layer building; not possible to share layers
+model_labcor <- keras_model_sequential() %>%
+  layer_conv_2d(filters = 32, kernel_size = c(3,3), activation = "relu",
+                input_shape = c(32,32,3)) %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu")
 
+# Now flatten and apply neural net calculation
+model_labcor %>%
+  layer_flatten() %>%
+  layer_dense(units = 64, activation = "relu") %>%
+  layer_dense(units = 10, activation = "softmax")
+
+# Compile and train model
+model_labcor %>% 
+  compile(
+    optimizer = "adam",
+    loss = "sparse_categorical_crossentropy",
+    metrics = "accuracy"
+  )
+
+# Fit the model
+start_time = Sys.time()
+model_labcor %>% 
+  fit(
+    x = cifar$train$x[1:7000,,,], y = cifar$test$y[1:7000],
+    epochs = 10,
+    validation_data = unname(cifar$test),
+    verbose = 2
+  )
+end_time = Sys.time()
+
+# Time taken to train model
+end_time - start_time
 ```
 
-#### Model 2
+Predict on last 40,000 images to correct their labels.
 
-## Evaluation
+```{r}
+pred_labcor = model_labcor %>%
+  predict(imgs[10001:50000,,,]) %>%
+  k_argmax() %>%
+  as.matrix() %>%
+  as.factor()
+```
 
+### Model 2
+
+Now that the labels have been corrected for the last 40,000 images, we will re-train a CNN on the 40,000 images and evaluate its performance on the remaining 3,000 images with clean labels.
+
+```{r}
+# Sequential = layer by layer building; not possible to share layers
+model2 <- keras_model_sequential() %>%
+  layer_conv_2d(filters = 32, kernel_size = c(3,3), activation = "relu",
+                input_shape = c(32,32,3)) %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = "relu")
+
+# Now flatten and apply neural net calculation
+model2 %>%
+  layer_flatten() %>%
+  layer_dense(units = 64, activation = "relu") %>%
+  layer_dense(units = 10, activation = "softmax")
+
+# Compile and train model
+model2 %>%
+  compile(
+    optimizer = "adam",
+    loss = "sparse_categorical_crossentropy",
+    metrics = "accuracy"
+  )
+
+# Fit the model
+start_time = Sys.time()
+model2 %>% 
+  fit(
+    x = cifar$train$x[10001:50000,,,], y = as.matrix(as.numeric(pred_labcor))-1,
+    epochs = 10,
+    validation_data = unname(cifar$test),
+    verbose = 2
+  )
+end_time = Sys.time()
+
+# Time taken to train model
+end_time - start_time
+```
+
+For the convenience of evaluation, we write the following function `cnn_model2` that does the label prediction. The function takes in RGB images of format with dimension $32 \times 32 \times 3$ as input, and returns labels as output.
+
+```{r}
+# This is the CNN predictive model that takes in an array of images and returns the label predictions
+cnn_model2 <- function(images) {
+  # Predict labels
+  pred2 = model2 %>%
+    predict(images) %>%
+    k_argmax() %>%
+    as.matrix() %>%
+    as.factor()
+  return(pred2)
+}
+```
+
+Evaluate the CNN model on the validation set, which contains the 3,000 images with clean labels.
+
+```{r}
+# Predict on the 3,000 images and show results
+pred2 = cnn_model2(imgs[7001:10000,,,])
+class_report(table(pred2, valid[7001:10000]))
+```
+
+# Evaluation
+
+Evaluate on test set.
+
+```{r}
+cifar10 <- dataset_cifar10()
+
+pred_test = cnn_model2(cifar10$test$x/255)
+class_report(table(pred_test, as.factor(cifar10$test$y)))
+```
