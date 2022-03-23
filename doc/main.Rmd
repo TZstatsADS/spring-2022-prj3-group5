@@ -1,7 +1,7 @@
 ---
 title: "Weakly Supervised Learning: Label Noise and Correction"
 subtitle: "Applied Data Science Project 3"
-author: "Marcus Loke"
+author: "Marcus Loke, Sarah Kurihara, Shintaro Nakamura, Yinan Shi, Yixuan Zhang"
 date: "Spring 2022"
 output:
   html_document: 
@@ -45,7 +45,7 @@ n_noisy = 40000
 n_clean_noisy = n_img - n_noisy
 imgs = array(NA, c(n_img,32,32,3))
 
-for (i in 1:n_img){
+for (i in 1:n_img) {
   img_fn = glue("../data/images/{str_pad(i, 5, pad='0')}.png")
   imgs[i,,,] = readPNG(img_fn) 
   i = i + 1
@@ -191,15 +191,6 @@ class_report <- function(cm, dp=2) {
 }
 ```
 
-Evaluate baseline model on the validation set, which contains the first 10,000 images with clean labels.
-
-```{r}
-# Predict on first 10,000 images and show results
-valid = as.factor((as.data.frame(clean_labels))$V1)
-pred = baseline_model(imgs[1:10000,,,])
-class_report(table(pred, valid))
-```
-
 ## Model 1: CNN
 
 Here we build a convolutional neural network (CNN) that's trained on the last 40,000 images with noisy labels (i.e., image #10,001 to #50,000) and tested on the first 10,000 images with clean labels (i.e., image #1 to #10,000). This way of segmenting the data into train and validation sets are in the proportion of 80% to 20% respectively.
@@ -259,15 +250,6 @@ cnn_model1 <- function(images) {
     as.factor()
   return(pred1)
 }
-```
-
-Evaluate the CNN model on the validation set, which contains the first 10,000 images with clean labels.
-
-```{r}
-# Predict on first 10,000 images and show results
-pred1 = cnn_model1(imgs[1:10000,,,])
-class_report(table(pred1, valid))
-evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
 ```
 
 ### 5-fold CV
@@ -456,7 +438,35 @@ cnn_model2 <- function(images) {
 }
 ```
 
-Evaluate the CNN model on the validation set, which contains the 3,000 images with clean labels.
+# Evaluation
+
+This section covers the model evaluation on the training data.
+
+## Baseline model
+
+Evaluate baseline model on the validation set, which contains the first 10,000 images with clean labels.
+
+```{r}
+# Predict on first 10,000 images and show results
+valid = as.factor((as.data.frame(clean_labels))$V1)
+pred = baseline_model(imgs[1:10000,,,])
+class_report(table(pred, valid))
+```
+
+## Model 1: CNN
+
+Evaluate the CNN model on the validation set, which contains the first 10,000 images with clean labels.
+
+```{r}
+# Predict on first 10,000 images and show results
+pred1 = cnn_model1(imgs[1:10000,,,])
+class_report(table(pred1, valid))
+evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
+```
+
+## Model 2: WSL with CNN
+
+Evaluate the CNN model (WSL) on the validation set, which contains the 3,000 images with clean labels.
 
 ```{r}
 # Predict on the 3,000 images and show results
@@ -464,13 +474,34 @@ pred2 = cnn_model2(imgs[7001:10000,,,])
 class_report(table(pred2, valid[7001:10000]))
 ```
 
-# Evaluation
+# Predict on hidden test set
 
-Evaluate on test set.
+Finally, we are given 10,000 images that do not have labels. We will predict the labels and store them as `label_prediction.csv`.
 
-```{r}
-cifar10 <- dataset_cifar10()
+```{r, eval=FALSE}
+# Load images
+imgs_test = array(NA, c(20,32,32,3))
 
-pred_test = cnn_model2(cifar10$test$x/255)
-class_report(table(pred_test, as.factor(cifar10$test$y)))
+for (i in 1:20) {
+  img_fn_test = glue("../data/test_images/test{str_pad(i, 5, pad='0')}.png")
+  imgs_test[i,,,] = readPNG(img_fn_test) 
+  i = i + 1
+}
+
+# Predict labels using baseline model
+pred_baseline = baseline_model(imgs_test)
+
+# Predict labels using model 1
+pred_mod1 = cnn_model1(imgs_test)
+
+# Predict labels using model 2
+pred_mod2 = cnn_model2(imgs_test)
+
+# Output to csv file
+pred_results = data.frame(Index = 1:nrow(imgs_test),
+                          Baseline = pred_baseline,
+                          Model_I = pred_mod1,
+                          Model_II = pred_mod2)
+write.csv(pred_results, "../output/label_prediction.csv", row.names = FALSE)
 ```
+
