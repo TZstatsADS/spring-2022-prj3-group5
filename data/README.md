@@ -7,6 +7,7 @@ The data directory contains data used in the analysis. This is treated as read o
 data/
 ├──images/
 ├────XXXXX.png (image data for training)
+├──test_images/
 ├────testXXXXX.png (image data for testing)
 ├── clean_labels.csv (The clean labels for the first 10,000 images of the training images
 ├── noisy_labels.csv (The noisy labels for the entire training images
