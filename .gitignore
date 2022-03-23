@@ -3,3 +3,4 @@ doc/*.RData
 doc/*.Rhistory
 data/test_images/*.png
 data/*.csv
+.DS_Store
