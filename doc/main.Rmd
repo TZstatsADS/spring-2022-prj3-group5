@@ -256,7 +256,8 @@ cnn_model1 <- function(images) {
 
 To have a better estimation of the model performance on future unseen data, we performed 5-fold cross validation (CV) on the last 40,000 images and averaged the accuracy. We chose 5-fold CV and not a bigger k value because we did not want to overfit the model and we wanted a quicker run time. We also did not select too small a value for k due to the risk of the increase in bias. From the results below, the average accuracy from the 5-folds CV is 33%. Although there is a drop in accuracy from the same CNN model tested on the first 10,000 images, do note that the CV was trained and tested on the last 40,000 with noisy labels. Hence, this drop in accuracy is expected and can be improved with label correction (to be done next).
 
-```{r}
+```{r, eval=FALSE}
+# DO NOT RUN - RUNS CV TO DETERMINE EXPECTED ACCURACY ON UNSEEN DATA
 # Create 5 folds that stores the indexes for each fold
 set.seed(100)
 folds = createFolds(cifar$train$x[10001:50000], k=5, list=TRUE, returnTrain=FALSE)
