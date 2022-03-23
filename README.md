@@ -14,11 +14,11 @@ Term: Spring 2022
 	+ [Yinan Shi](ys3387@columbia.edu) (ys3387@columbia.edu)
 	+ [Yixuan Zhang](yz4081@columbia.edu) (yz4081@columbia.edu)
 
-+ Project summary: Weakly supervised learning is a topic that addresses the issue of noisy and imperfect labels, much like the image above where many labels do not correspond correctly with the images. In this project, we created various models that performs image classification on a large dataset of 50,000 images with noisy labels. A baseline multinomial logistic regression model is created in the starter code and we developed two models that improves on that: Model 1 uses a convolutional neural network (CNN) that's trained on noisy labels while Model 2 employs a label correction network before training the same CNN on the cleaned labels.
++ **Project summary**: Weakly supervised learning is a topic that addresses the issue of noisy and imperfect labels, much like the image above where many labels do not correspond correctly with the images. In this project, we created various models that performs image classification on a large dataset of 50,000 images with noisy labels. A baseline multinomial logistic regression model is created in the starter code and we developed two models that improves on that: Model 1 uses a convolutional neural network (CNN) that's trained on noisy labels while Model 2 employs a label correction network before training the same CNN on the cleaned labels.
 
-+ Results summary: Tested on 10,000 images with clean labels, the baseline model achieved an accuracy of 23% and model 1 achieved an accuracy of 47%. Tested on 3,000 images with clean labels, model 2 achieved an accuracy of 56%.   
++ **Results summary**: Tested on 10,000 images with clean labels, the baseline model achieved an accuracy of 23% and model 1 achieved an accuracy of 47%. Tested on 3,000 images with clean labels, model 2 achieved an accuracy of 56%.   
 
-+ Technologies used: R and Python (Keras/TensorFlow/PyTorch)
++ **Technologies used**: R and Python (Keras/TensorFlow/PyTorch)
 	
 **Contribution statement**: ([default](doc/a_note_on_contributions.md)) 
 <br>
