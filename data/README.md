@@ -8,8 +8,6 @@ data/
 ├──images/
 ├────XXXXX.png (image data for training)
 ├────testXXXXX.png (image data for testing)
-├── *clean_labels.csv*
-├── noisy_labels.csv
-|── label_prediction.csv
-
+├── clean_labels.csv (The clean labels for the first 10,000 images of the training images
+├── noisy_labels.csv (The noisy labels for the entire training images
 ```
