@@ -1,9 +1,8 @@
 # Project 3: Weakly supervised learning -- label noise and correction
 
+<img src="figs/noisy_labels.png" width="500">
 
 ### [Full Project Description](doc/project3_desc.md)
-
-![screenshot](figs/noisy_labels.png)
 
 Term: Spring 2022
 
