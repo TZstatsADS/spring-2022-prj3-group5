@@ -18,7 +18,16 @@ Term: Spring 2022
 
 + Technologies used: Python and R (Keras/TensorFlow)
 	
-**Contribution statement**: ([default](doc/a_note_on_contributions.md)) All team members contributed equally in all stages of this project. All team members approve our work presented in this GitHub repository including this contributions statement. 
+**Contribution statement**: ([default](doc/a_note_on_contributions.md)) 
+<br>
+All team members attended all meetings and contributed to research and planning of the project.
+<br>
++ <b>Marcus Loke (ml4636)</b> developed the entire project in R and cross-validated all work in a different programming language. He also created a unique model I which was selected as the group's model I based on the model's high performance. He performed Cross Validation on his unique models to assess performance.
++ <b>Sarah Kurihara (sqk2003)</b> worked in Python to create a unique model I for comparison to the rest of the group but was not selected as the group's model I. She translated the Model I from R into Python and performed Grid Search Cross Validation to optimize the selected model I and determine the appropiate parameters.
++ <b>Shintaro Nakamura (sn2904)</b> worked in Python to create the code for file reading for evaluation phase. He also created a unique model I and model II used in model development phase for comparison but was not selected as the group's models. He performed Cross Validation on his unique models to assess performance.
++ <b>Yinan Shi (ys3387)</b> worked in Python to create a unique model I used in model development phase (not selected) and contributed to the label correction algorithm of model II. Her label correction algorithm was selected for the project based on the model's highest performance. She is also the presenter for the project.
++ <b>Yixuan Zhang (yz4081)</b> worked in Python to create a unique model I used in model development phase (not selected) and contributed to the label correction algorithm of model II.
+
 
 Following [suggestions](http://nicercode.github.io/blog/2013-04-05-projects/) by [RICH FITZJOHN](http://nicercode.github.io/about/#Team) (@richfitz). This folder is orgarnized as follows.
 
