@@ -8,7 +8,7 @@ data/
 ├──images/
 ├────XXXXX.png (image data for training)
 ├────testXXXXX.png (image data for testing)
-├── clean_labels.csv
+├── *clean_labels.csv*
 ├── noisy_labels.csv
 |── label_prediction.csv
 
