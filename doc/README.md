@@ -2,7 +2,7 @@
 
 The doc directory contains the report or presentation files. It can have subfolders. 
 
-+ *main.ipynb*: The final Python codes for the submission.
-+ *main.pdf*: The final report for submission.
-+ *main.Rmd*: The R codes created to cross-validate all the work done in Python. We created the entire project in R so that the teaching staff in ADS can reuse it for future semesters.
-+ *main.html*: The report generated for the codes in R.
++ *main.Rmd*: The final R codes for the project submission.
++ *main.html*: The final report generated for the codes in R.
++ *abandoned (Inception V3)-main.ipynb*: The Python codes for the project (not selected for submission but used as a reference).
++ *abandoned (Inception V3)-main.html*: The Python report for the project (not selected for submission but used as a reference).
