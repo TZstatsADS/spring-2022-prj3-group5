@@ -1,0 +1,5 @@
+data/images/*.png
+doc/*.RData
+doc/*.Rhistory
+data/test_images/*.png
+data/*.csv

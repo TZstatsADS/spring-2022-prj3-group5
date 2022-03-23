@@ -1,17 +1,18 @@
-# Project: Weakly supervised learning-- label noise and correction
+# Project 3: Weakly supervised learning -- label noise and correction
 
+<img src="figs/noisy_labels.png" width="500">
 
 ### [Full Project Description](doc/project3_desc.md)
 
 Term: Spring 2022
 
-+ Team ##
++ Team 5
 + Team members
-	+ team member 1
-	+ team member 2
-	+ team member 3
-	+ team member 4
-	+ team member 5
+	+ Marcus Loke
+	+ Sarah Kurihara
+	+ Shintaro Nakamura
+	+ Yinan Shi
+	+ Yixuan Zhang
 
 + Project summary: In this project, we created ...
 	
