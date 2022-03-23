@@ -26,6 +26,8 @@ library(png)
 library(glue)
 library(stringr)
 library(caret)
+library(tidyr)
+library(ggplot2)
 
 # Sets all random seeds needed to make TensorFlow code reproducible
 set_random_seed(100)
@@ -230,9 +232,6 @@ results_train <- model %>%
   )
 end_time = Sys.time()
 
-# Evaluate model
-plot(results_train)
-
 # Time taken to train model
 end_time - start_time
 ```
@@ -410,7 +409,7 @@ model2 %>%
 
 # Fit the model
 start_time = Sys.time()
-model2 %>% 
+results_train2 <- model2 %>% 
   fit(
     x = cifar$train$x[10001:50000,,,], y = as.matrix(as.numeric(pred_labcor))-1,
     epochs = 10,
@@ -445,7 +444,7 @@ This section covers the model evaluation on the training data.
 
 ## Baseline model
 
-Evaluate baseline model on the validation set, which contains the first 10,000 images with clean labels.
+Evaluate baseline model on the validation set, which contains the first 10,000 images with clean labels. The accuracy of the model is 23%.
 
 ```{r}
 # Predict on first 10,000 images and show results
@@ -454,25 +453,69 @@ pred = baseline_model(imgs[1:10000,,,])
 class_report(table(pred, valid))
 ```
 
+```{r, warning=FALSE}
+# Plot confusion matrix
+cm_baseline = as.data.frame(table(pred, valid)) %>% 
+  rename(prediction = pred, actual = valid, freq = Freq)
+
+ggplot(cm_baseline, aes(x=actual, y=prediction, fill=freq)) +
+  geom_tile() + theme_bw() + coord_equal() +
+  scale_fill_distiller(palette="Greens", direction=1) +
+  guides(fill=F) + # removing legend for `fill`
+  labs(title = "Confusion matrix distribution") + # using a title instead
+  geom_text(aes(label=freq), color="black") # printing values
+```
+
 ## Model 1: CNN
 
-Evaluate the CNN model on the validation set, which contains the first 10,000 images with clean labels.
+Evaluate the CNN model on the validation set, which contains the first 10,000 images with clean labels. The accuracy of the CNN model is 47%, which is much higher than the baseline model's accuracy.
 
-```{r}
+Based on the line chart below, it is obvious that model 1 showed worse performance on the training dataset compared to the validation dataset. The main reason is because we used noisy labels for training while the valdation was done on the clean labels. In other words, the validation set was much easier (or understandable) for model I. This is a sign that the validation set was sampled from a different distribution as compared to the training dataset, which necessitates the need for a label correction network.
+
+```{r, message=FALSE}
 # Predict on first 10,000 images and show results
 pred1 = cnn_model1(imgs[1:10000,,,])
 class_report(table(pred1, valid))
-evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
+plot(results_train)
+```
+
+```{r, warning=FALSE}
+# Plot confusion matrix
+cm1 = as.data.frame(table(pred1, valid)) %>% 
+  rename(prediction = pred1, actual = valid, freq = Freq)
+
+ggplot(cm1, aes(x=actual, y=prediction, fill=freq)) +
+  geom_tile() + theme_bw() + coord_equal() +
+  scale_fill_distiller(palette="Greens", direction=1) +
+  guides(fill=F) + # removing legend for `fill`
+  labs(title = "Confusion matrix distribution") + # using a title instead
+  geom_text(aes(label=freq), color="black") # printing values
 ```
 
 ## Model 2: WSL with CNN
 
-Evaluate the CNN model (WSL) on the validation set, which contains the 3,000 images with clean labels.
+Evaluate the CNN model (WSL) on the validation set, which contains the 3,000 images with clean labels. The accuracy of the CNN model is 56%, which is higher than the accuracy of the baseline model and model 1.
 
-```{r}
+The graph below shows that the validation loss is comparatively higher than the training loss and starts increasing with the training, which is quite counter-intuitive. But this might not be a sign of overfitting. Upon closer inspection, you will realize the accuracy does not drop at the same time. To understand this better, we should take into account that the accuracy is computed comparing the highest output of the softmax with the correct label, and it does not vary depending on the actual value of the softmax output, which is what the validation loss takes into account. And it is also a sign that we should not train this model for too many epochs since it may cause potential overfitting in the future.
+
+```{r, message=FALSE}
 # Predict on the 3,000 images and show results
 pred2 = cnn_model2(imgs[7001:10000,,,])
 class_report(table(pred2, valid[7001:10000]))
+plot(results_train2)
+```
+
+```{r, warning=FALSE}
+# Plot confusion matrix
+cm2 = as.data.frame(table(pred2, valid[7001:10000])) %>% 
+  rename(prediction = pred2, actual = Var2, freq = Freq)
+
+ggplot(cm2, aes(x=actual, y=prediction, fill=freq)) +
+  geom_tile() + theme_bw() + coord_equal() +
+  scale_fill_distiller(palette="Greens", direction=1) +
+  guides(fill=F) + # removing legend for `fill`
+  labs(title = "Confusion matrix distribution") + # using a title instead
+  geom_text(aes(label=freq), color="black") # printing values
 ```
 
 # Predict on hidden test set
@@ -481,9 +524,10 @@ Finally, we are given 10,000 images that do not have labels. We will predict the
 
 ```{r, eval=FALSE}
 # Load images
-imgs_test = array(NA, c(10000,32,32,3))
+n_imgs = 10000
+imgs_test = array(NA, c(n_imgs,32,32,3))
 
-for (i in 1:10000) {
+for (i in 1:n_imgs) {
   img_fn_test = glue("../data/test_images/test{str_pad(i, 5, pad='0')}.png")
   imgs_test[i,,,] = readPNG(img_fn_test) 
   i = i + 1
@@ -499,10 +543,11 @@ pred_mod1 = cnn_model1(imgs_test)
 pred_mod2 = cnn_model2(imgs_test)
 
 # Output to csv file
-pred_results = data.frame(Index = 1:nrow(imgs_test),
-                          Baseline = pred_baseline,
-                          Model_I = pred_mod1,
-                          Model_II = pred_mod2)
+pred_results = data.frame("Index" = glue("test{str_pad(1:n_imgs, 5, pad='0')}"),
+                          "Baseline" = pred_baseline,
+                          "Model I" = pred_mod1,
+                          "Model II" = pred_mod2,
+                          check.names = FALSE)
 write.csv(pred_results, "../output/label_prediction.csv", row.names = FALSE)
 ```
 
